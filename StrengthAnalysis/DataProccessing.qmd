@@ -4,19 +4,32 @@ format: html
 editor: visual
 ---
 
-## Data Processing
+# Data Processing
+
+This code requires the raster layers of both explanatory and response variables for each of the 12 species and 3 scenarios; all in the correct coordinate reference system, pixel dimensions, and projection. This has been achieved in ARCGIS pro from secondarily sourced data combined with the corridor maps of our virtual species (the output of file one; 'CreatingVirtualSpecies'). With these inputs, here we compile the variables and take a random sample balanced by factor, and combine all 12 species into a single full sample. This should be used to replicate the sampling. If the exact results are desired, continue with the next script (analysis) and use our pre-saved samples when prompted.
 
 Load library:
 
-```{r}
+```{r install packages}
+#| echo: false  
+#| warning: false 
+#| message: false  
+
+#isntall if needed, then library
 library(terra)
 library(ggplot2)
 library(dplyr)
+library(here)
 ```
 
 Set functions:
 
-```{r}
+```{r load functions}
+#| echo: false  
+#| warning: false 
+#| message: false  
+
+#Function to upload a raster layer, assign it a useful name, extract values to a seperate object (requied for later filtering out top 25 strongest corridors), and finally give the column a useful name
 upload.rastervals <- function(filepath, obj_name, val_obj_name, colname){
   tempobj <- rast(filepath)
   assign(obj_name, tempobj, envir = .GlobalEnv)
@@ -25,275 +38,312 @@ upload.rastervals <- function(filepath, obj_name, val_obj_name, colname){
   assign(val_obj_name, values_obj, envir = .GlobalEnv)
 }
 
+#function to specify a percentile and use it to filter out pixels above the threshold
 extract.percentile <- function(dataframe, variable, percentile, outputname){
   tempobj <- dataframe %>%
     filter(variable <- quantile(dataframe$variable, percentile, na.rm= TRUE))
   assign(outputname, tempobj, envir = .GlobalEnv)
-  
 }
 ```
 
+## Upload Layers
+
 First, we need to upload all the layers:
 
-```{r}
-#HD
-upload.rastervals("C:\\Users\\shil5756\\Documents\\ConnectivityData_master\\Data\\VulnData\\HD\\VulHDsho126.tif",
+```{r Uplaod Variable Layers}
+#| echo: false  
+#| warning: false 
+#| message: false  
+
+#### HD 
+#response variable (vulnerability)
+#short dispersal type
+upload.rastervals(here("data", "analysis_data", "VariableLayers", "VulnData", "HD", "VulHDsho126.tif"),
                   "HDvulshort126", "HDvulshort126_values", "Vulnerability")
-upload.rastervals("C:\\Users\\shil5756\\Documents\\ConnectivityData_master\\Data\\VulnData\\HD\\VulHDsho245.tif",
+upload.rastervals(here("data", "analysis_data", "VariableLayers", "VulnData", "HD", "VulHDsho245.tif"),
                   "HDvulshort245", "HDvulshort245_values", "Vulnerability")
-upload.rastervals("C:\\Users\\shil5756\\Documents\\ConnectivityData_master\\Data\\VulnData\\HD\\VulHDsho585.tif",
+upload.rastervals(here("data", "analysis_data", "VariableLayers", "VulnData", "HD", "VulHDsho585.tif"), 
                   "HDvulshort585", "HDvulshort585_values", "Vulnerability")
-upload.rastervals("C:\\Users\\shil5756\\Documents\\ConnectivityData_master\\Data\\VulnData\\HD\\VulHDlon126.tif",
+#long dispersal type
+upload.rastervals(here("data", "analysis_data", "VariableLayers", "VulnData", "HD", "VulHDlon126.tif"),
                   "HDvullong126", "HDvullong126_values", "Vulnerability")
-upload.rastervals("C:\\Users\\shil5756\\Documents\\ConnectivityData_master\\Data\\VulnData\\HD\\VulHDlon245.tif",
+upload.rastervals(here("data", "analysis_data", "VariableLayers", "VulnData", "HD", "VulHDlon245.tif"),
                   "HDvullong245", "HDvullong245_values", "Vulnerability")
-upload.rastervals("C:\\Users\\shil5756\\Documents\\ConnectivityData_master\\Data\\VulnData\\HD\\VulHDlon585.tif",
+upload.rastervals(here("data", "analysis_data", "VariableLayers", "VulnData", "HD", "VulHDlon585.tif"),
                   "HDvullong585", "HDvullong585_values", "Vulnerability")
-upload.rastervals("C:\\Users\\shil5756\\Documents\\ConnectivityData_master\\Data\\Variables\\HD\\eleHDsho.tif",
-                  "HDeleshort", "HDeleshort_values", "Elevation")
-upload.rastervals("C:\\Users\\shil5756\\Documents\\ConnectivityData_master\\Data\\Variables\\HD\\eleHDlon.tif",
-                  "HDelelong", "HDelelong_values", "Elevation")
-upload.rastervals("C:\\Users\\shil5756\\Documents\\ConnectivityData_master\\Data\\Variables\\HD\\temHDsho.tif",
-                  "HDtemshort", "HDtemshort_values", "Temperature")
-upload.rastervals("C:\\Users\\shil5756\\Documents\\ConnectivityData_master\\Data\\Variables\\HD\\temHDlon.tif",
-                  "HDtemlong", "HDtemlong_values", "Temperature")
-upload.rastervals("C:\\Users\\shil5756\\Documents\\ConnectivityData_master\\Data\\Variables\\HD\\precHDsho.tif",
-                  "HDprecshort", "HDprecshort_values", "Precipitation")
-upload.rastervals("C:\\Users\\shil5756\\Documents\\ConnectivityData_master\\Data\\Variables\\HD\\precHDlon.tif",
-                  "HDpreclong", "HDpreclong_values", "Precipitation")
-upload.rastervals("C:\\Users\\shil5756\\Documents\\ConnectivityData_master\\Data\\Variables\\HD\\rugHDsho.tif",
-                  "HDrugshort", "HDrugshort_values", "Rugosity")
-upload.rastervals("C:\\Users\\shil5756\\Documents\\ConnectivityData_master\\Data\\Variables\\HD\\rugHDlon.tif",
-                  "HDruglong", "HDruglong_values", "Rugosity")
-upload.rastervals("C:\\Users\\shil5756\\Documents\\ConnectivityData_master\\Data\\Variables\\HD\\strHDsho.tif",
-                  "HDstrshort", "HDstrshort_values", "Corridor_Strength")
-upload.rastervals("C:\\Users\\shil5756\\Documents\\ConnectivityData_master\\Data\\Variables\\HD\\strHDlon.tif",
-                  "HDstrlong", "HDstrlong_values", "Corridor_Strength")
-upload.rastervals("C:\\Users\\shil5756\\Documents\\ConnectivityData_master\\Data\\Variables\\HD\\habHDsho.tif",
-                  "HDhabshort", "HDhabshort_values", "Habitat_Suitability")
-upload.rastervals("C:\\Users\\shil5756\\Documents\\ConnectivityData_master\\Data\\Variables\\HD\\habHDlon.tif",
-                  "HDhablong", "HDhablong_values", "Habitat_Suitability")
-upload.rastervals("C:\\Users\\shil5756\\Documents\\ConnectivityData_master\\Data\\Variables\\HD\\pdistHDsho.tif",
-                  "HDpdistshort", "HDpdistshort_values", "Start_Distance")
-upload.rastervals("C:\\Users\\shil5756\\Documents\\ConnectivityData_master\\Data\\Variables\\HD\\pdistHDlon.tif",
-                  "HDpdistlong", "HDpdistlong_values", "Start_Distance")
 
-#HG
-upload.rastervals("C:\\Users\\shil5756\\Documents\\ConnectivityData_master\\Data\\VulnData\\HG\\VulHGsho126.tif",
+#upload the explanatory variables
+#elevation
+upload.rastervals(here("data", "analysis_data", "VariableLayers", "ExplanatoryVariables", "HD", "eleHDsho.tif"), "HDeleshort", "HDeleshort_values", "Elevation")
+upload.rastervals(here("data", "analysis_data", "VariableLayers", "ExplanatoryVariables", "HD", "eleHDlon.tif"), "HDelelong", "HDelelong_values", "Elevation")
+
+#temperature
+upload.rastervals(here("data", "analysis_data", "VariableLayers", "ExplanatoryVariables", "HD", "temHDsho.tif"), "HDtemshort", "HDtemshort_values", "Temperature")
+upload.rastervals(here("data", "analysis_data", "VariableLayers", "ExplanatoryVariables", "HD", "temHDlon.tif"), "HDtemlong", "HDtemlong_values", "Temperature")
+
+#precipitation
+upload.rastervals(here("data", "analysis_data", "VariableLayers", "ExplanatoryVariables", "HD", "precHDsho.tif"),"HDprecshort", "HDprecshort_values", "Precipitation")
+upload.rastervals(here("data", "analysis_data", "VariableLayers", "ExplanatoryVariables", "HD", "precHDlon.tif"),"HDpreclong", "HDpreclong_values", "Precipitation")
+
+#Rugosity
+upload.rastervals(here("data", "analysis_data", "VariableLayers", "ExplanatoryVariables", "HD", "rugHDsho.tif"), "HDrugshort", "HDrugshort_values", "Rugosity")
+upload.rastervals(here("data", "analysis_data", "VariableLayers", "ExplanatoryVariables", "HD", "rugHDlon.tif"), "HDruglong", "HDruglong_values", "Rugosity")
+
+#Strength
+upload.rastervals(here("data", "analysis_data", "VariableLayers", "ExplanatoryVariables", "HD", "strHDsho.tif"), "HDstrshort", "HDstrshort_values", "Corridor_Strength")
+upload.rastervals(here("data", "analysis_data", "VariableLayers", "ExplanatoryVariables", "HD", "strHDlon.tif"), "HDstrlong", "HDstrlong_values", "Corridor_Strength")
+
+#Habitat Suitability
+upload.rastervals(here("data", "analysis_data", "VariableLayers", "ExplanatoryVariables", "HD", "habHDsho.tif"), "HDhabshort", "HDhabshort_values", "Habitat_Suitability")
+upload.rastervals(here("data", "analysis_data", "VariableLayers", "ExplanatoryVariables", "HD", "habHDlon.tif"), "HDhablong", "HDhablong_values", "Habitat_Suitability")
+
+#Start Distance
+upload.rastervals(here("data", "analysis_data", "VariableLayers", "ExplanatoryVariables", "HD", "pdistHDsho.tif"), "HDpdistshort", "HDpdistshort_values", "Start_Distance")
+upload.rastervals(here("data", "analysis_data", "VariableLayers", "ExplanatoryVariables", "HD", "pdistHDlon.tif"), "HDpdistlong", "HDpdistlong_values", "Start_Distance")
+
+#### HG
+#response variable (vulnerability)
+#short dispersal type
+upload.rastervals(here("data", "analysis_data", "VariableLayers", "VulnData", "HG", "VulHGsho126.tif"),
                   "HGvulshort126", "HGvulshort126_values", "Vulnerability")
-upload.rastervals("C:\\Users\\shil5756\\Documents\\ConnectivityData_master\\Data\\VulnData\\HG\\VulHGsho245.tif",
+upload.rastervals(here("data", "analysis_data", "VariableLayers", "VulnData", "HG", "VulHGsho245.tif"),
                   "HGvulshort245", "HGvulshort245_values", "Vulnerability")
-upload.rastervals("C:\\Users\\shil5756\\Documents\\ConnectivityData_master\\Data\\VulnData\\HG\\VulHGsho585.tif",
+upload.rastervals(here("data", "analysis_data", "VariableLayers", "VulnData", "HG", "VulHGsho585.tif"), 
                   "HGvulshort585", "HGvulshort585_values", "Vulnerability")
-upload.rastervals("C:\\Users\\shil5756\\Documents\\ConnectivityData_master\\Data\\VulnData\\HG\\VulHGlon126.tif",
+#long dispersal type
+upload.rastervals(here("data", "analysis_data", "VariableLayers", "VulnData", "HG", "VulHGlon126.tif"),
                   "HGvullong126", "HGvullong126_values", "Vulnerability")
-upload.rastervals("C:\\Users\\shil5756\\Documents\\ConnectivityData_master\\Data\\VulnData\\HG\\VulHGlon245.tif",
+upload.rastervals(here("data", "analysis_data", "VariableLayers", "VulnData", "HG", "VulHGlon245.tif"),
                   "HGvullong245", "HGvullong245_values", "Vulnerability")
-upload.rastervals("C:\\Users\\shil5756\\Documents\\ConnectivityData_master\\Data\\VulnData\\HG\\VulHGlon585.tif",
+upload.rastervals(here("data", "analysis_data", "VariableLayers", "VulnData", "HG", "VulHGlon585.tif"),
                   "HGvullong585", "HGvullong585_values", "Vulnerability")
-upload.rastervals("C:\\Users\\shil5756\\Documents\\ConnectivityData_master\\Data\\Variables\\HG\\eleHGsho.tif",
-                  "HGeleshort", "HGeleshort_values", "Elevation")
-upload.rastervals("C:\\Users\\shil5756\\Documents\\ConnectivityData_master\\Data\\Variables\\HG\\eleHGlon.tif",
-                  "HGelelong", "HGelelong_values", "Elevation")
-upload.rastervals("C:\\Users\\shil5756\\Documents\\ConnectivityData_master\\Data\\Variables\\HG\\temHGsho.tif",
-                  "HGtemshort", "HGtemshort_values", "Temperature")
-upload.rastervals("C:\\Users\\shil5756\\Documents\\ConnectivityData_master\\Data\\Variables\\HG\\temHGlon.tif",
-                  "HGtemlong", "HGtemlong_values", "Temperature")
-upload.rastervals("C:\\Users\\shil5756\\Documents\\ConnectivityData_master\\Data\\Variables\\HG\\precHGsho.tif",
-                  "HGprecshort", "HGprecshort_values", "Precipitation")
-upload.rastervals("C:\\Users\\shil5756\\Documents\\ConnectivityData_master\\Data\\Variables\\HG\\precHGlon.tif",
-                  "HGpreclong", "HGpreclong_values", "Precipitation")
-upload.rastervals("C:\\Users\\shil5756\\Documents\\ConnectivityData_master\\Data\\Variables\\HG\\rugHGsho.tif",
-                  "HGrugshort", "HGrugshort_values", "Rugosity")
-upload.rastervals("C:\\Users\\shil5756\\Documents\\ConnectivityData_master\\Data\\Variables\\HG\\rugHGlon.tif",
-                  "HGruglong", "HGruglong_values", "Rugosity")
-upload.rastervals("C:\\Users\\shil5756\\Documents\\ConnectivityData_master\\Data\\Variables\\HG\\strHGsho.tif",
-                  "HGstrshort", "HGstrshort_values", "Corridor_Strength")
-upload.rastervals("C:\\Users\\shil5756\\Documents\\ConnectivityData_master\\Data\\Variables\\HG\\strHGlon.tif",
-                  "HGstrlong", "HGstrlong_values", "Corridor_Strength")
-upload.rastervals("C:\\Users\\shil5756\\Documents\\ConnectivityData_master\\Data\\Variables\\HG\\habHGsho.tif",
-                  "HGhabshort", "HGhabshort_values", "Habitat_Suitability")
-upload.rastervals("C:\\Users\\shil5756\\Documents\\ConnectivityData_master\\Data\\Variables\\HG\\habHGlon.tif",
-                  "HGhablong", "HGhablong_values", "Habitat_Suitability")
-upload.rastervals("C:\\Users\\shil5756\\Documents\\ConnectivityData_master\\Data\\Variables\\HG\\pdistHGsho.tif",
-                  "HGpdistshort", "HGpdistshort_values", "Start_Distance")
-upload.rastervals("C:\\Users\\shil5756\\Documents\\ConnectivityData_master\\Data\\Variables\\HG\\pdistHGlon.tif",
-                  "HGpdistlong", "HGpdistlong_values", "Start_Distance")
 
-#HW
-upload.rastervals("C:\\Users\\shil5756\\Documents\\ConnectivityData_master\\Data\\VulnData\\HW\\VulHWsho126.tif",
+#upload the explanatory variables
+#elevation
+upload.rastervals(here("data", "analysis_data", "VariableLayers", "ExplanatoryVariables", "HG", "eleHGsho.tif"), "HGeleshort", "HGeleshort_values", "Elevation")
+upload.rastervals(here("data", "analysis_data", "VariableLayers", "ExplanatoryVariables", "HG", "eleHGlon.tif"), "HGelelong", "HGelelong_values", "Elevation")
+
+#temperature
+upload.rastervals(here("data", "analysis_data", "VariableLayers", "ExplanatoryVariables", "HG", "temHGsho.tif"), "HGtemshort", "HGtemshort_values", "Temperature")
+upload.rastervals(here("data", "analysis_data", "VariableLayers", "ExplanatoryVariables", "HG", "temHGlon.tif"), "HGtemlong", "HGtemlong_values", "Temperature")
+
+#precipitation
+upload.rastervals(here("data", "analysis_data", "VariableLayers", "ExplanatoryVariables", "HG", "precHGsho.tif"),"HGprecshort", "HGprecshort_values", "Precipitation")
+upload.rastervals(here("data", "analysis_data", "VariableLayers", "ExplanatoryVariables", "HG", "precHGlon.tif"),"HGpreclong", "HGpreclong_values", "Precipitation")
+
+#Rugosity
+upload.rastervals(here("data", "analysis_data", "VariableLayers", "ExplanatoryVariables", "HG", "rugHGsho.tif"), "HGrugshort", "HGrugshort_values", "Rugosity")
+upload.rastervals(here("data", "analysis_data", "VariableLayers", "ExplanatoryVariables", "HG", "rugHGlon.tif"), "HGruglong", "HGruglong_values", "Rugosity")
+
+#Strength
+upload.rastervals(here("data", "analysis_data", "VariableLayers", "ExplanatoryVariables", "HG", "strHGsho.tif"), "HGstrshort", "HGstrshort_values", "Corridor_Strength")
+upload.rastervals(here("data", "analysis_data", "VariableLayers", "ExplanatoryVariables", "HG", "strHGlon.tif"), "HGstrlong", "HGstrlong_values", "Corridor_Strength")
+
+#Habitat Suitability
+upload.rastervals(here("data", "analysis_data", "VariableLayers", "ExplanatoryVariables", "HG", "habHGsho.tif"), "HGhabshort", "HGhabshort_values", "Habitat_Suitability")
+upload.rastervals(here("data", "analysis_data", "VariableLayers", "ExplanatoryVariables", "HG", "habHGlon.tif"), "HGhablong", "HGhablong_values", "Habitat_Suitability")
+
+#Start Distance
+upload.rastervals(here("data", "analysis_data", "VariableLayers", "ExplanatoryVariables", "HG", "pdistHGsho.tif"), "HGpdistshort", "HGpdistshort_values", "Start_Distance")
+upload.rastervals(here("data", "analysis_data", "VariableLayers", "ExplanatoryVariables", "HG", "pdistHGlon.tif"), "HGpdistlong", "HGpdistlong_values", "Start_Distance")
+
+#### HW
+#response variable (vulnerability)
+#short dispersal type
+upload.rastervals(here("data", "analysis_data", "VariableLayers", "VulnData", "HW", "VulHWsho126.tif"),
                   "HWvulshort126", "HWvulshort126_values", "Vulnerability")
-upload.rastervals("C:\\Users\\shil5756\\Documents\\ConnectivityData_master\\Data\\VulnData\\HW\\VulHWsho245.tif",
+upload.rastervals(here("data", "analysis_data", "VariableLayers", "VulnData", "HW", "VulHWsho245.tif"),
                   "HWvulshort245", "HWvulshort245_values", "Vulnerability")
-upload.rastervals("C:\\Users\\shil5756\\Documents\\ConnectivityData_master\\Data\\VulnData\\HW\\VulHWsho585.tif",
+upload.rastervals(here("data", "analysis_data", "VariableLayers", "VulnData", "HW", "VulHWsho585.tif"), 
                   "HWvulshort585", "HWvulshort585_values", "Vulnerability")
-upload.rastervals("C:\\Users\\shil5756\\Documents\\ConnectivityData_master\\Data\\VulnData\\HW\\VulHWlon126.tif",
+#long dispersal type
+upload.rastervals(here("data", "analysis_data", "VariableLayers", "VulnData", "HW", "VulHWlon126.tif"),
                   "HWvullong126", "HWvullong126_values", "Vulnerability")
-upload.rastervals("C:\\Users\\shil5756\\Documents\\ConnectivityData_master\\Data\\VulnData\\HW\\VulHWlon245.tif",
+upload.rastervals(here("data", "analysis_data", "VariableLayers", "VulnData", "HW", "VulHWlon245.tif"),
                   "HWvullong245", "HWvullong245_values", "Vulnerability")
-upload.rastervals("C:\\Users\\shil5756\\Documents\\ConnectivityData_master\\Data\\VulnData\\HW\\VulHWlon585.tif",
+upload.rastervals(here("data", "analysis_data", "VariableLayers", "VulnData", "HW", "VulHWlon585.tif"),
                   "HWvullong585", "HWvullong585_values", "Vulnerability")
-upload.rastervals("C:\\Users\\shil5756\\Documents\\ConnectivityData_master\\Data\\Variables\\HW\\eleHWsho.tif",
-                  "HWeleshort", "HWeleshort_values", "Elevation")
-upload.rastervals("C:\\Users\\shil5756\\Documents\\ConnectivityData_master\\Data\\Variables\\HW\\eleHWlon.tif",
-                  "HWelelong", "HWelelong_values", "Elevation")
-upload.rastervals("C:\\Users\\shil5756\\Documents\\ConnectivityData_master\\Data\\Variables\\HW\\temHWsho.tif",
-                  "HWtemshort", "HWtemshort_values", "Temperature")
-upload.rastervals("C:\\Users\\shil5756\\Documents\\ConnectivityData_master\\Data\\Variables\\HW\\temHWlon.tif",
-                  "HWtemlong", "HWtemlong_values", "Temperature")
-upload.rastervals("C:\\Users\\shil5756\\Documents\\ConnectivityData_master\\Data\\Variables\\HW\\precHWsho.tif",
-                  "HWprecshort", "HWprecshort_values", "Precipitation")
-upload.rastervals("C:\\Users\\shil5756\\Documents\\ConnectivityData_master\\Data\\Variables\\HW\\precHWlon.tif",
-                  "HWpreclong", "HWpreclong_values", "Precipitation")
-upload.rastervals("C:\\Users\\shil5756\\Documents\\ConnectivityData_master\\Data\\Variables\\HW\\rugHWsho.tif",
-                  "HWrugshort", "HWrugshort_values", "Rugosity")
-upload.rastervals("C:\\Users\\shil5756\\Documents\\ConnectivityData_master\\Data\\Variables\\HW\\rugHWlon.tif",
-                  "HWruglong", "HWruglong_values", "Rugosity")
-upload.rastervals("C:\\Users\\shil5756\\Documents\\ConnectivityData_master\\Data\\Variables\\HW\\strHWsho.tif",
-                  "HWstrshort", "HWstrshort_values", "Corridor_Strength")
-upload.rastervals("C:\\Users\\shil5756\\Documents\\ConnectivityData_master\\Data\\Variables\\HW\\strHWlon.tif",
-                  "HWstrlong", "HWstrlong_values", "Corridor_Strength")
-upload.rastervals("C:\\Users\\shil5756\\Documents\\ConnectivityData_master\\Data\\Variables\\HW\\habHWsho.tif",
-                  "HWhabshort", "HWhabshort_values", "Habitat_Suitability")
-upload.rastervals("C:\\Users\\shil5756\\Documents\\ConnectivityData_master\\Data\\Variables\\HW\\habHWlon.tif",
-                  "HWhablong", "HWhablong_values", "Habitat_Suitability")
-upload.rastervals("C:\\Users\\shil5756\\Documents\\ConnectivityData_master\\Data\\Variables\\HW\\pdistHWsho.tif",
-                  "HWpdistshort", "HWpdistshort_values", "Start_Distance")
-upload.rastervals("C:\\Users\\shil5756\\Documents\\ConnectivityData_master\\Data\\Variables\\HW\\pdistHWlon.tif",
-                  "HWpdistlong", "HWpdistlong_values", "Start_Distance")
 
-#LD
-upload.rastervals("C:\\Users\\shil5756\\Documents\\ConnectivityData_master\\Data\\VulnData\\LD\\VulLDsho126.tif",
+#upload the explanatory variables
+#elevation
+upload.rastervals(here("data", "analysis_data", "VariableLayers", "ExplanatoryVariables", "HW", "eleHWsho.tif"), "HWeleshort", "HWeleshort_values", "Elevation")
+upload.rastervals(here("data", "analysis_data", "VariableLayers", "ExplanatoryVariables", "HW", "eleHWlon.tif"), "HWelelong", "HWelelong_values", "Elevation")
+
+#temperature
+upload.rastervals(here("data", "analysis_data", "VariableLayers", "ExplanatoryVariables", "HW", "temHWsho.tif"), "HWtemshort", "HWtemshort_values", "Temperature")
+upload.rastervals(here("data", "analysis_data", "VariableLayers", "ExplanatoryVariables", "HW", "temHWlon.tif"), "HWtemlong", "HWtemlong_values", "Temperature")
+
+#precipitation
+upload.rastervals(here("data", "analysis_data", "VariableLayers", "ExplanatoryVariables", "HW", "precHWsho.tif"),"HWprecshort", "HWprecshort_values", "Precipitation")
+upload.rastervals(here("data", "analysis_data", "VariableLayers", "ExplanatoryVariables", "HW", "precHWlon.tif"),"HWpreclong", "HWpreclong_values", "Precipitation")
+
+#Rugosity
+upload.rastervals(here("data", "analysis_data", "VariableLayers", "ExplanatoryVariables", "HW", "rugHWsho.tif"), "HWrugshort", "HWrugshort_values", "Rugosity")
+upload.rastervals(here("data", "analysis_data", "VariableLayers", "ExplanatoryVariables", "HW", "rugHWlon.tif"), "HWruglong", "HWruglong_values", "Rugosity")
+
+#Strength
+upload.rastervals(here("data", "analysis_data", "VariableLayers", "ExplanatoryVariables", "HW", "strHWsho.tif"), "HWstrshort", "HWstrshort_values", "Corridor_Strength")
+upload.rastervals(here("data", "analysis_data", "VariableLayers", "ExplanatoryVariables", "HW", "strHWlon.tif"), "HWstrlong", "HWstrlong_values", "Corridor_Strength")
+
+#Habitat Suitability
+upload.rastervals(here("data", "analysis_data", "VariableLayers", "ExplanatoryVariables", "HW", "habHWsho.tif"), "HWhabshort", "HWhabshort_values", "Habitat_Suitability")
+upload.rastervals(here("data", "analysis_data", "VariableLayers", "ExplanatoryVariables", "HW", "habHWlon.tif"), "HWhablong", "HWhablong_values", "Habitat_Suitability")
+
+#Start Distance
+upload.rastervals(here("data", "analysis_data", "VariableLayers", "ExplanatoryVariables", "HW", "pdistHWsho.tif"), "HWpdistshort", "HWpdistshort_values", "Start_Distance")
+upload.rastervals(here("data", "analysis_data", "VariableLayers", "ExplanatoryVariables", "HW", "pdistHWlon.tif"), "HWpdistlong", "HWpdistlong_values", "Start_Distance")
+
+#### LD
+#response variable (vulnerability)
+#short dispersal type
+upload.rastervals(here("data", "analysis_data", "VariableLayers", "VulnData", "LD", "VulLDsho126.tif"),
                   "LDvulshort126", "LDvulshort126_values", "Vulnerability")
-upload.rastervals("C:\\Users\\shil5756\\Documents\\ConnectivityData_master\\Data\\VulnData\\LD\\VulLDsho245.tif",
+upload.rastervals(here("data", "analysis_data", "VariableLayers", "VulnData", "LD", "VulLDsho245.tif"),
                   "LDvulshort245", "LDvulshort245_values", "Vulnerability")
-upload.rastervals("C:\\Users\\shil5756\\Documents\\ConnectivityData_master\\Data\\VulnData\\LD\\VulLDsho585.tif",
+upload.rastervals(here("data", "analysis_data", "VariableLayers", "VulnData", "LD", "VulLDsho585.tif"), 
                   "LDvulshort585", "LDvulshort585_values", "Vulnerability")
-upload.rastervals("C:\\Users\\shil5756\\Documents\\ConnectivityData_master\\Data\\VulnData\\LD\\VulLDlon126.tif",
+#long dispersal type
+upload.rastervals(here("data", "analysis_data", "VariableLayers", "VulnData", "LD", "VulLDlon126.tif"),
                   "LDvullong126", "LDvullong126_values", "Vulnerability")
-upload.rastervals("C:\\Users\\shil5756\\Documents\\ConnectivityData_master\\Data\\VulnData\\LD\\VulLDlon245.tif",
+upload.rastervals(here("data", "analysis_data", "VariableLayers", "VulnData", "LD", "VulLDlon245.tif"),
                   "LDvullong245", "LDvullong245_values", "Vulnerability")
-upload.rastervals("C:\\Users\\shil5756\\Documents\\ConnectivityData_master\\Data\\VulnData\\LD\\VulLDlon585.tif",
+upload.rastervals(here("data", "analysis_data", "VariableLayers", "VulnData", "LD", "VulLDlon585.tif"),
                   "LDvullong585", "LDvullong585_values", "Vulnerability")
-upload.rastervals("C:\\Users\\shil5756\\Documents\\ConnectivityData_master\\Data\\Variables\\LD\\eleLDsho.tif",
-                  "LDeleshort", "LDeleshort_values", "Elevation")
-upload.rastervals("C:\\Users\\shil5756\\Documents\\ConnectivityData_master\\Data\\Variables\\LD\\eleLDlon.tif",
-                  "LDelelong", "LDelelong_values", "Elevation")
-upload.rastervals("C:\\Users\\shil5756\\Documents\\ConnectivityData_master\\Data\\Variables\\LD\\temLDsho.tif",
-                  "LDtemshort", "LDtemshort_values", "Temperature")
-upload.rastervals("C:\\Users\\shil5756\\Documents\\ConnectivityData_master\\Data\\Variables\\LD\\temLDlon.tif",
-                  "LDtemlong", "LDtemlong_values", "Temperature")
-upload.rastervals("C:\\Users\\shil5756\\Documents\\ConnectivityData_master\\Data\\Variables\\LD\\precLDsho.tif",
-                  "LDprecshort", "LDprecshort_values", "Precipitation")
-upload.rastervals("C:\\Users\\shil5756\\Documents\\ConnectivityData_master\\Data\\Variables\\LD\\precLDlon.tif",
-                  "LDpreclong", "LDpreclong_values", "Precipitation")
-upload.rastervals("C:\\Users\\shil5756\\Documents\\ConnectivityData_master\\Data\\Variables\\LD\\rugLDsho.tif",
-                  "LDrugshort", "LDrugshort_values", "Rugosity")
-upload.rastervals("C:\\Users\\shil5756\\Documents\\ConnectivityData_master\\Data\\Variables\\LD\\rugLDlon.tif",
-                  "LDruglong", "LDruglong_values", "Rugosity")
-upload.rastervals("C:\\Users\\shil5756\\Documents\\ConnectivityData_master\\Data\\Variables\\LD\\strLDsho.tif",
-                  "LDstrshort", "LDstrshort_values", "Corridor_Strength")
-upload.rastervals("C:\\Users\\shil5756\\Documents\\ConnectivityData_master\\Data\\Variables\\LD\\strLDlon.tif",
-                  "LDstrlong", "LDstrlong_values", "Corridor_Strength")
-upload.rastervals("C:\\Users\\shil5756\\Documents\\ConnectivityData_master\\Data\\Variables\\LD\\habLDsho.tif",
-                  "LDhabshort", "LDhabshort_values", "Habitat_Suitability")
-upload.rastervals("C:\\Users\\shil5756\\Documents\\ConnectivityData_master\\Data\\Variables\\LD\\habLDlon.tif",
-                  "LDhablong", "LDhablong_values", "Habitat_Suitability")
-upload.rastervals("C:\\Users\\shil5756\\Documents\\ConnectivityData_master\\Data\\Variables\\LD\\pdistLDsho.tif",
-                  "LDpdistshort", "LDpdistshort_values", "Start_Distance")
-upload.rastervals("C:\\Users\\shil5756\\Documents\\ConnectivityData_master\\Data\\Variables\\LD\\pdistLDlon.tif",
-                  "LDpdistlong", "LDpdistlong_values", "Start_Distance")
 
-#LG
-upload.rastervals("C:\\Users\\shil5756\\Documents\\ConnectivityData_master\\Data\\VulnData\\LG\\VulLGsho126.tif",
+#upload the explanatory variables
+#elevation
+upload.rastervals(here("data", "analysis_data", "VariableLayers", "ExplanatoryVariables", "LD", "eleLDsho.tif"), "LDeleshort", "LDeleshort_values", "Elevation")
+upload.rastervals(here("data", "analysis_data", "VariableLayers", "ExplanatoryVariables", "LD", "eleLDlon.tif"), "LDelelong", "LDelelong_values", "Elevation")
+
+#temperature
+upload.rastervals(here("data", "analysis_data", "VariableLayers", "ExplanatoryVariables", "LD", "temLDsho.tif"), "LDtemshort", "LDtemshort_values", "Temperature")
+upload.rastervals(here("data", "analysis_data", "VariableLayers", "ExplanatoryVariables", "LD", "temLDlon.tif"), "LDtemlong", "LDtemlong_values", "Temperature")
+
+#precipitation
+upload.rastervals(here("data", "analysis_data", "VariableLayers", "ExplanatoryVariables", "LD", "precLDsho.tif"),"LDprecshort", "LDprecshort_values", "Precipitation")
+upload.rastervals(here("data", "analysis_data", "VariableLayers", "ExplanatoryVariables", "LD", "precLDlon.tif"),"LDpreclong", "LDpreclong_values", "Precipitation")
+
+#Rugosity
+upload.rastervals(here("data", "analysis_data", "VariableLayers", "ExplanatoryVariables", "LD", "rugLDsho.tif"), "LDrugshort", "LDrugshort_values", "Rugosity")
+upload.rastervals(here("data", "analysis_data", "VariableLayers", "ExplanatoryVariables", "LD", "rugLDlon.tif"), "LDruglong", "LDruglong_values", "Rugosity")
+
+#Strength
+upload.rastervals(here("data", "analysis_data", "VariableLayers", "ExplanatoryVariables", "LD", "strLDsho.tif"), "LDstrshort", "LDstrshort_values", "Corridor_Strength")
+upload.rastervals(here("data", "analysis_data", "VariableLayers", "ExplanatoryVariables", "LD", "strLDlon.tif"), "LDstrlong", "LDstrlong_values", "Corridor_Strength")
+
+#Habitat Suitability
+upload.rastervals(here("data", "analysis_data", "VariableLayers", "ExplanatoryVariables", "LD", "habLDsho.tif"), "LDhabshort", "LDhabshort_values", "Habitat_Suitability")
+upload.rastervals(here("data", "analysis_data", "VariableLayers", "ExplanatoryVariables", "LD", "habLDlon.tif"), "LDhablong", "LDhablong_values", "Habitat_Suitability")
+
+#Start Distance
+upload.rastervals(here("data", "analysis_data", "VariableLayers", "ExplanatoryVariables", "LD", "pdistLDsho.tif"), "LDpdistshort", "LDpdistshort_values", "Start_Distance")
+upload.rastervals(here("data", "analysis_data", "VariableLayers", "ExplanatoryVariables", "LD", "pdistLDlon.tif"), "LDpdistlong", "LDpdistlong_values", "Start_Distance")
+
+#### LG
+#response variable (vulnerability)
+#short dispersal type
+upload.rastervals(here("data", "analysis_data", "VariableLayers", "VulnData", "LG", "VulLGsho126.tif"),
                   "LGvulshort126", "LGvulshort126_values", "Vulnerability")
-upload.rastervals("C:\\Users\\shil5756\\Documents\\ConnectivityData_master\\Data\\VulnData\\LG\\VulLGsho245.tif",
+upload.rastervals(here("data", "analysis_data", "VariableLayers", "VulnData", "LG", "VulLGsho245.tif"),
                   "LGvulshort245", "LGvulshort245_values", "Vulnerability")
-upload.rastervals("C:\\Users\\shil5756\\Documents\\ConnectivityData_master\\Data\\VulnData\\LG\\VulLGsho585.tif",
+upload.rastervals(here("data", "analysis_data", "VariableLayers", "VulnData", "LG", "VulLGsho585.tif"), 
                   "LGvulshort585", "LGvulshort585_values", "Vulnerability")
-upload.rastervals("C:\\Users\\shil5756\\Documents\\ConnectivityData_master\\Data\\VulnData\\LG\\VulLGlon126.tif",
+#long dispersal type
+upload.rastervals(here("data", "analysis_data", "VariableLayers", "VulnData", "LG", "VulLGlon126.tif"),
                   "LGvullong126", "LGvullong126_values", "Vulnerability")
-upload.rastervals("C:\\Users\\shil5756\\Documents\\ConnectivityData_master\\Data\\VulnData\\LG\\VulLGlon245.tif",
+upload.rastervals(here("data", "analysis_data", "VariableLayers", "VulnData", "LG", "VulLGlon245.tif"),
                   "LGvullong245", "LGvullong245_values", "Vulnerability")
-upload.rastervals("C:\\Users\\shil5756\\Documents\\ConnectivityData_master\\Data\\VulnData\\LG\\VulLGlon585.tif",
+upload.rastervals(here("data", "analysis_data", "VariableLayers", "VulnData", "LG", "VulLGlon585.tif"),
                   "LGvullong585", "LGvullong585_values", "Vulnerability")
-upload.rastervals("C:\\Users\\shil5756\\Documents\\ConnectivityData_master\\Data\\Variables\\LG\\eleLGsho.tif",
-                  "LGeleshort", "LGeleshort_values", "Elevation")
-upload.rastervals("C:\\Users\\shil5756\\Documents\\ConnectivityData_master\\Data\\Variables\\LG\\eleLGlon.tif",
-                  "LGelelong", "LGelelong_values", "Elevation")
-upload.rastervals("C:\\Users\\shil5756\\Documents\\ConnectivityData_master\\Data\\Variables\\LG\\temLGsho.tif",
-                  "LGtemshort", "LGtemshort_values", "Temperature")
-upload.rastervals("C:\\Users\\shil5756\\Documents\\ConnectivityData_master\\Data\\Variables\\LG\\temLGlon.tif",
-                  "LGtemlong", "LGtemlong_values", "Temperature")
-upload.rastervals("C:\\Users\\shil5756\\Documents\\ConnectivityData_master\\Data\\Variables\\LG\\precLGsho.tif",
-                  "LGprecshort", "LGprecshort_values", "Precipitation")
-upload.rastervals("C:\\Users\\shil5756\\Documents\\ConnectivityData_master\\Data\\Variables\\LG\\precLGlon.tif",
-                  "LGpreclong", "LGpreclong_values", "Precipitation")
-upload.rastervals("C:\\Users\\shil5756\\Documents\\ConnectivityData_master\\Data\\Variables\\LG\\rugLGsho.tif",
-                  "LGrugshort", "LGrugshort_values", "Rugosity")
-upload.rastervals("C:\\Users\\shil5756\\Documents\\ConnectivityData_master\\Data\\Variables\\LG\\rugLGlon.tif",
-                  "LGruglong", "LGruglong_values", "Rugosity")
-upload.rastervals("C:\\Users\\shil5756\\Documents\\ConnectivityData_master\\Data\\Variables\\LG\\strLGsho.tif",
-                  "LGstrshort", "LGstrshort_values", "Corridor_Strength")
-upload.rastervals("C:\\Users\\shil5756\\Documents\\ConnectivityData_master\\Data\\Variables\\LG\\strLGlon.tif",
-                  "LGstrlong", "LGstrlong_values", "Corridor_Strength")
-upload.rastervals("C:\\Users\\shil5756\\Documents\\ConnectivityData_master\\Data\\Variables\\LG\\habLGsho.tif",
-                  "LGhabshort", "LGhabshort_values", "Habitat_Suitability")
-upload.rastervals("C:\\Users\\shil5756\\Documents\\ConnectivityData_master\\Data\\Variables\\LG\\habLGlon.tif",
-                  "LGhablong", "LGhablong_values", "Habitat_Suitability")
-upload.rastervals("C:\\Users\\shil5756\\Documents\\ConnectivityData_master\\Data\\Variables\\LG\\pdistLGsho.tif",
-                  "LGpdistshort", "LGpdistshort_values", "Start_Distance")
-upload.rastervals("C:\\Users\\shil5756\\Documents\\ConnectivityData_master\\Data\\Variables\\LG\\pdistLGlon.tif",
-                  "LGpdistlong", "LGpdistlong_values", "Start_Distance")
 
-#LW
-upload.rastervals("C:\\Users\\shil5756\\Documents\\ConnectivityData_master\\Data\\VulnData\\LW\\VulLWsho126.tif",
+#upload the explanatory variables
+#elevation
+upload.rastervals(here("data", "analysis_data", "VariableLayers", "ExplanatoryVariables", "LG", "eleLGsho.tif"), "LGeleshort", "LGeleshort_values", "Elevation")
+upload.rastervals(here("data", "analysis_data", "VariableLayers", "ExplanatoryVariables", "LG", "eleLGlon.tif"), "LGelelong", "LGelelong_values", "Elevation")
+
+#temperature
+upload.rastervals(here("data", "analysis_data", "VariableLayers", "ExplanatoryVariables", "LG", "temLGsho.tif"), "LGtemshort", "LGtemshort_values", "Temperature")
+upload.rastervals(here("data", "analysis_data", "VariableLayers", "ExplanatoryVariables", "LG", "temLGlon.tif"), "LGtemlong", "LGtemlong_values", "Temperature")
+
+#precipitation
+upload.rastervals(here("data", "analysis_data", "VariableLayers", "ExplanatoryVariables", "LG", "precLGsho.tif"),"LGprecshort", "LGprecshort_values", "Precipitation")
+upload.rastervals(here("data", "analysis_data", "VariableLayers", "ExplanatoryVariables", "LG", "precLGlon.tif"),"LGpreclong", "LGpreclong_values", "Precipitation")
+
+#Rugosity
+upload.rastervals(here("data", "analysis_data", "VariableLayers", "ExplanatoryVariables", "LG", "rugLGsho.tif"), "LGrugshort", "LGrugshort_values", "Rugosity")
+upload.rastervals(here("data", "analysis_data", "VariableLayers", "ExplanatoryVariables", "LG", "rugLGlon.tif"), "LGruglong", "LGruglong_values", "Rugosity")
+
+#Strength
+upload.rastervals(here("data", "analysis_data", "VariableLayers", "ExplanatoryVariables", "LG", "strLGsho.tif"), "LGstrshort", "LGstrshort_values", "Corridor_Strength")
+upload.rastervals(here("data", "analysis_data", "VariableLayers", "ExplanatoryVariables", "LG", "strLGlon.tif"), "LGstrlong", "LGstrlong_values", "Corridor_Strength")
+
+#Habitat Suitability
+upload.rastervals(here("data", "analysis_data", "VariableLayers", "ExplanatoryVariables", "LG", "habLGsho.tif"), "LGhabshort", "LGhabshort_values", "Habitat_Suitability")
+upload.rastervals(here("data", "analysis_data", "VariableLayers", "ExplanatoryVariables", "LG", "habLGlon.tif"), "LGhablong", "LGhablong_values", "Habitat_Suitability")
+
+#Start Distance
+upload.rastervals(here("data", "analysis_data", "VariableLayers", "ExplanatoryVariables", "LG", "pdistLGsho.tif"), "LGpdistshort", "LGpdistshort_values", "Start_Distance")
+upload.rastervals(here("data", "analysis_data", "VariableLayers", "ExplanatoryVariables", "LG", "pdistLGlon.tif"), "LGpdistlong", "LGpdistlong_values", "Start_Distance")
+
+#### LW
+#response variable (vulnerability)
+#short dispersal type
+upload.rastervals(here("data", "analysis_data", "VariableLayers", "VulnData", "LW", "VulLWsho126.tif"),
                   "LWvulshort126", "LWvulshort126_values", "Vulnerability")
-upload.rastervals("C:\\Users\\shil5756\\Documents\\ConnectivityData_master\\Data\\VulnData\\LW\\VulLWsho245.tif",
+upload.rastervals(here("data", "analysis_data", "VariableLayers", "VulnData", "LW", "VulLWsho245.tif"),
                   "LWvulshort245", "LWvulshort245_values", "Vulnerability")
-upload.rastervals("C:\\Users\\shil5756\\Documents\\ConnectivityData_master\\Data\\VulnData\\LW\\VulLWsho585.tif",
+upload.rastervals(here("data", "analysis_data", "VariableLayers", "VulnData", "LW", "VulLWsho585.tif"), 
                   "LWvulshort585", "LWvulshort585_values", "Vulnerability")
-upload.rastervals("C:\\Users\\shil5756\\Documents\\ConnectivityData_master\\Data\\VulnData\\LW\\VulLWlon126.tif",
+#long dispersal type
+upload.rastervals(here("data", "analysis_data", "VariableLayers", "VulnData", "LW", "VulLWlon126.tif"),
                   "LWvullong126", "LWvullong126_values", "Vulnerability")
-upload.rastervals("C:\\Users\\shil5756\\Documents\\ConnectivityData_master\\Data\\VulnData\\LW\\VulLWlon245.tif",
+upload.rastervals(here("data", "analysis_data", "VariableLayers", "VulnData", "LW", "VulLWlon245.tif"),
                   "LWvullong245", "LWvullong245_values", "Vulnerability")
-upload.rastervals("C:\\Users\\shil5756\\Documents\\ConnectivityData_master\\Data\\VulnData\\LW\\VulLWlon585.tif",
+upload.rastervals(here("data", "analysis_data", "VariableLayers", "VulnData", "LW", "VulLWlon585.tif"),
                   "LWvullong585", "LWvullong585_values", "Vulnerability")
-upload.rastervals("C:\\Users\\shil5756\\Documents\\ConnectivityData_master\\Data\\Variables\\LW\\eleLWsho.tif",
-                  "LWeleshort", "LWeleshort_values", "Elevation")
-upload.rastervals("C:\\Users\\shil5756\\Documents\\ConnectivityData_master\\Data\\Variables\\LW\\eleLWlon.tif",
-                  "LWelelong", "LWelelong_values", "Elevation")
-upload.rastervals("C:\\Users\\shil5756\\Documents\\ConnectivityData_master\\Data\\Variables\\LW\\temLWsho.tif",
-                  "LWtemshort", "LWtemshort_values", "Temperature")
-upload.rastervals("C:\\Users\\shil5756\\Documents\\ConnectivityData_master\\Data\\Variables\\LW\\temLWlon.tif",
-                  "LWtemlong", "LWtemlong_values", "Temperature")
-upload.rastervals("C:\\Users\\shil5756\\Documents\\ConnectivityData_master\\Data\\Variables\\LW\\precLWsho.tif",
-                  "LWprecshort", "LWprecshort_values", "Precipitation")
-upload.rastervals("C:\\Users\\shil5756\\Documents\\ConnectivityData_master\\Data\\Variables\\LW\\precLWlon.tif",
-                  "LWpreclong", "LWpreclong_values", "Precipitation")
-upload.rastervals("C:\\Users\\shil5756\\Documents\\ConnectivityData_master\\Data\\Variables\\LW\\rugLWsho.tif",
-                  "LWrugshort", "LWrugshort_values", "Rugosity")
-upload.rastervals("C:\\Users\\shil5756\\Documents\\ConnectivityData_master\\Data\\Variables\\LW\\rugLWlon.tif",
-                  "LWruglong", "LWruglong_values", "Rugosity")
-upload.rastervals("C:\\Users\\shil5756\\Documents\\ConnectivityData_master\\Data\\Variables\\LW\\strLWsho.tif",
-                  "LWstrshort", "LWstrshort_values", "Corridor_Strength")
-upload.rastervals("C:\\Users\\shil5756\\Documents\\ConnectivityData_master\\Data\\Variables\\LW\\strLWlon.tif",
-                  "LWstrlong", "LWstrlong_values", "Corridor_Strength")
-upload.rastervals("C:\\Users\\shil5756\\Documents\\ConnectivityData_master\\Data\\Variables\\LW\\habLWsho.tif",
-                  "LWhabshort", "LWhabshort_values", "Habitat_Suitability")
-upload.rastervals("C:\\Users\\shil5756\\Documents\\ConnectivityData_master\\Data\\Variables\\LW\\habLWlon.tif",
-                  "LWhablong", "LWhablong_values", "Habitat_Suitability")
-upload.rastervals("C:\\Users\\shil5756\\Documents\\ConnectivityData_master\\Data\\Variables\\LW\\pdistLWsho.tif",
-                  "LWpdistshort", "LWpdistshort_values", "Start_Distance")
-upload.rastervals("C:\\Users\\shil5756\\Documents\\ConnectivityData_master\\Data\\Variables\\LW\\pdistLWlon.tif",
-                  "LWpdistlong", "LWpdistlong_values", "Start_Distance")
+
+#upload the explanatory variables
+#elevation
+upload.rastervals(here("data", "analysis_data", "VariableLayers", "ExplanatoryVariables", "LW", "eleLWsho.tif"), "LWeleshort", "LWeleshort_values", "Elevation")
+upload.rastervals(here("data", "analysis_data", "VariableLayers", "ExplanatoryVariables", "LW", "eleLWlon.tif"), "LWelelong", "LWelelong_values", "Elevation")
+
+#temperature
+upload.rastervals(here("data", "analysis_data", "VariableLayers", "ExplanatoryVariables", "LW", "temLWsho.tif"), "LWtemshort", "LWtemshort_values", "Temperature")
+upload.rastervals(here("data", "analysis_data", "VariableLayers", "ExplanatoryVariables", "LW", "temLWlon.tif"), "LWtemlong", "LWtemlong_values", "Temperature")
+
+#precipitation
+upload.rastervals(here("data", "analysis_data", "VariableLayers", "ExplanatoryVariables", "LW", "precLWsho.tif"),"LWprecshort", "LWprecshort_values", "Precipitation")
+upload.rastervals(here("data", "analysis_data", "VariableLayers", "ExplanatoryVariables", "LW", "precLWlon.tif"),"LWpreclong", "LWpreclong_values", "Precipitation")
+
+#Rugosity
+upload.rastervals(here("data", "analysis_data", "VariableLayers", "ExplanatoryVariables", "LW", "rugLWsho.tif"), "LWrugshort", "LWrugshort_values", "Rugosity")
+upload.rastervals(here("data", "analysis_data", "VariableLayers", "ExplanatoryVariables", "LW", "rugLWlon.tif"), "LWruglong", "LWruglong_values", "Rugosity")
+
+#Strength
+upload.rastervals(here("data", "analysis_data", "VariableLayers", "ExplanatoryVariables", "LW", "strLWsho.tif"), "LWstrshort", "LWstrshort_values", "Corridor_Strength")
+upload.rastervals(here("data", "analysis_data", "VariableLayers", "ExplanatoryVariables", "LW", "strLWlon.tif"), "LWstrlong", "LWstrlong_values", "Corridor_Strength")
+
+#Habitat Suitability
+upload.rastervals(here("data", "analysis_data", "VariableLayers", "ExplanatoryVariables", "LW", "habLWsho.tif"), "LWhabshort", "LWhabshort_values", "Habitat_Suitability")
+upload.rastervals(here("data", "analysis_data", "VariableLayers", "ExplanatoryVariables", "LW", "habLWlon.tif"), "LWhablong", "LWhablong_values", "Habitat_Suitability")
+
+#Start Distance
+upload.rastervals(here("data", "analysis_data", "VariableLayers", "ExplanatoryVariables", "LW", "pdistLWsho.tif"), "LWpdistshort", "LWpdistshort_values", "Start_Distance")
+upload.rastervals(here("data", "analysis_data", "VariableLayers", "ExplanatoryVariables", "LW", "pdistLWlon.tif"), "LWpdistlong", "LWpdistlong_values", "Start_Distance")
+
 ```
 
-Then we can start taking the top 25 corridor sample:
+## Collate Data per Species
 
-For HD:
+Then we can start taking the top 25 corridor sample. Code annotation will be made fully only for the first instance.
 
-```{r}
+#### For HD:
+
+```{r Collate Data for HD}
+#| echo: false  
+#| warning: false 
+#| message: false  
+
 ### HD SHORT
 
 #25 for HDshort 126
@@ -312,6 +362,7 @@ HDvulshort126_stack_top25 <- mask(HDvulshort126_stack, HDshort_str25, maskvalue 
 #Has extracted the 25 corridors
 plot(HDvulshort126_stack_top25)
 
+#take a random sample from this extracted layer
 HDvulshort126_sample25 <- spatSample(HDvulshort126_stack_top25, 
                                 method = 'random', 
                                 size = 1500, 
@@ -320,9 +371,11 @@ HDvulshort126_sample25 <- spatSample(HDvulshort126_stack_top25,
                                 replace = TRUE
                                 )
 
+#apply appropriate names
 colnames(HDvulshort126_sample25) <- c('x', 'y', 'Vulnerability', 'Elevation',
                                  'Precipitation', 'Temperature', 'Rugosity', 'Corridor_Strength', 'Habitat_Suitability', 'Start_Distance')
 
+#and bind the factor variables 
 HDvulshort126_sample25 <- cbind(Species = factor(rep("HDshort")),
                        SpecGen = factor(rep("Specialist")),
                          AltitudeNiche = factor(rep("High")),
@@ -503,9 +556,13 @@ sample25HD
 
 ```
 
-For HG
+#### For HG
 
-```{r}
+```{r Collate Data for HG}
+#| echo: false  
+#| warning: false 
+#| message: false  
+
 ### HG SHORT
 
 #25 for HGshort 126
@@ -715,9 +772,13 @@ sample25HG
 
 ```
 
-For HW:
+#### For HW:
 
-```{r}
+```{r Collate Data for HW}
+#| echo: false  
+#| warning: false 
+#| message: false  
+
 ### HW SHORT
 
 #25 for HWshort 126
@@ -927,9 +988,13 @@ sample25HW
 
 ```
 
-For LD:
+#### For LD:
 
-```{r}
+```{r Collate Data for LD}
+#| echo: false  
+#| warning: false 
+#| message: false  
+
 ### LD SHORT
 
 #25 for LDshort 126
@@ -1139,9 +1204,13 @@ sample25LD
 
 ```
 
-For LG:
+#### For LG:
 
-```{r}
+```{r Collate Data for LG}
+#| echo: false  
+#| warning: false 
+#| message: false  
+
 ### LG SHORT
 
 #25 for LGshort 126
@@ -1351,9 +1420,13 @@ sample25LG
 
 ```
 
-For LW:
+#### For LW:
 
-```{r}
+```{r Collate Data for LW}
+#| echo: false  
+#| warning: false 
+#| message: false  
+
 ### LW SHORT
 
 #25 for LWshort 126
@@ -1565,61 +1638,21 @@ sample25LW
 
 ## Combine and Save
 
-```{r}
+```{r Combine and Save}
+#| echo: false  
+#| warning: false 
+#| message: false  
+
 #make combined sample
 Sample25 <- rbind(sample25HD, sample25HG, sample25HW,
                   sample25LD, sample25LG, sample25LW)
 
+#verify there are no NAs
 anyNA(Sample25)
 
 #and save it
-#write.csv(Sample25, "C:\\Users\\shil5756\\Documents\\ConnectivityData_master\\Data\\Dataframes2\\Sample25.csv", row.names = FALSE)
+#write.csv(Sample25, "filename", row.names = FALSE)
 
-Sample25 <- read.csv("C:\\Users\\shil5756\\Documents\\ConnectivityData_master\\Data\\Dataframes2\\Sample25.csv", header= TRUE)
-
-subsample <- Sample25 %>% sample_n(5000)
-
-#normal scale 
-ggplot(subsample, 
-       aes(x = Start_Distance, y = Vulnerability)) +
-  geom_point(size= 0.75, alpha= 0.06) + 
-  theme_minimal() +
-  geom_smooth(se= FALSE, method = "glm")+
-  labs(title = "Log Vulnerability vs Start distance; top25",
-       x = "log Corridor_Strength",
-       y = "log Vulnerability")
-
-#log
-ggplot(subsample, 
-       aes(x = Start_Distance, y = log1p(Vulnerability))) +
-  geom_point(size= 0.75, alpha= 0.06) + 
-  theme_minimal() +
-  geom_smooth(se= FALSE, method = "glm")+
-  labs(title = "Log Vulnerability vs Start distance; top25",
-       x = "log Corridor_Strength",
-       y = "log Vulnerability")
-
-#check with 0 removed
-subsample_n0 <- subsample[subsample$Vulnerability != 0, ]
-
-ggplot(subsample_n0, 
-       aes(x = Start_Distance, y = log1p(Vulnerability))) +
-  geom_point(size= 0.75, alpha= 0.06) + 
-  theme_minimal() +
-  geom_smooth(se= FALSE, method = "glm")+
-  labs(title = "Log Vulnerability vs Start distance; top25",
-       x = "log Corridor_Strength",
-       y = "log Vulnerability")
-
-#check the corri strength relationship
-ggplot(subsample_n0, 
-       aes(x = log(Corridor_Strength), y = log1p(Vulnerability))) +
-  geom_point(size= 0.75, alpha= 0.06) + 
-  theme_minimal() +
-  geom_smooth(se= FALSE, method = "glm")+
-  labs(title = "Log Vulnerability vs log Corridor_Strength; top25",
-       x = "log Corridor_Strength",
-       y = "log Vulnerability")
+#ensure you can replicate our sample
+Sample25 <- read.csv(here("data", "analysis_data", "FullSample_25.csv"), header= TRUE)
 ```
-
-I can already see that it was worth it adding the 'distance from start/end points', as it does seem to scale with vulnerbaility.
